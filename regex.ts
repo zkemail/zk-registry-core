@@ -57,4 +57,8 @@ function handleSubmission(submission: Submission): string {
   let circomFilePath = `${submissionFolderPath}/${id}.circom`;
 
   // Compile the circom file
+  let compiled = compileCircomCircuit(circomFilePath);
+  if (!compiled) {
+    return "Error during compilation";
+  }
 }
