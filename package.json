@@ -1,0 +1,26 @@
+{
+  "name": "zk-registry-core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": " node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.6.1",
+    "@types/uuid": "^10.0.0",
+    "@zk-email/zk-regex-compiler": "^2.1.1",
+    "express": "^4.21.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0"
+  }
+}
