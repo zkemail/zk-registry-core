@@ -6,6 +6,7 @@ import init from '@zk-email/zk-regex-compiler';
 import path from 'path';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import { DecomposedRegex } from 'zk-email-sdk-js';
 
 const exec = promisify(execCallback);
 
@@ -53,17 +54,16 @@ init()
 //   circomTemplateName: string;
 // }
 
-export function createCircomCircuit(
-  decomposedRegex: DecomposedRegex,
-  circomTemplateName: string,
-): string {
-  console.log('createCircomCircuit');
-  console.log('decomposedRegex: ', decomposedRegex);
-  console.log('circomTemplateName: ', circomTemplateName);
-  const str = JSON.stringify(decomposedRegex);
-  console.log('str: ', str);
-
-  return genFromDecomposed(str, circomTemplateName);
+export async function generateDecomposedRegexesCircuitTemplates(
+  decomposedRegexes: DecomposedRegex[],
+  id: string,
+) {
+  for (const decomposedRegex of decomposedRegexes) {
+    const str = JSON.stringify(decomposedRegex);
+    const templateStr = genFromDecomposed(str, decomposedRegex.name);
+    const name = decomposedRegex.name.replaceAll(' ', '');
+    await fs.writeFile(`./tmp/${id}/regex/${name}.circom`, templateStr);
+  }
 }
 
 // save compiled circuit

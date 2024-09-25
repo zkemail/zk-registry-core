@@ -1,32 +1,43 @@
-import * as fs from "fs";
+import fs from 'fs/promises';
+import { DecomposedRegex, ExternalInput } from 'zk-email-sdk-js';
 
-interface ExtractionValue {
-  name: string;
-  maxLength: number;
-  location: "body" | "header";
-}
+type GenerateCircuitTemplateProps = {
+  decomposedRegexes: DecomposedRegex[];
+  externalInputs: ExternalInput[];
+  circuitName: string;
+  ignoreBodyHashCheck?: boolean;
+  enableHeaderMasking?: boolean;
+  enableBodyMasking?: boolean;
+  emailBodyMaxLength?: number;
+  // enableHeaderMasking = false,
+  // enableBodyMasking = false,
+  // emailBodyMaxLength: number,
+};
 
-interface ExternalInput {
-  name: string;
-  maxLength: number;
-}
+export function generateCircuitTemplate({
+  decomposedRegexes,
+  externalInputs,
+  circuitName,
+  ignoreBodyHashCheck = false,
+  enableHeaderMasking = false,
+  enableBodyMasking = false,
+  emailBodyMaxLength = 4032,
+}: GenerateCircuitTemplateProps): string {
+  console.log('decomposedRegexes: ', decomposedRegexes);
+  console.log('externalInputs: ', externalInputs);
+  console.log('circuitName: ', circuitName);
+  console.log('ignoreBodyHashCheck : ', ignoreBodyHashCheck);
+  console.log('enableHeaderMasking : ', enableHeaderMasking);
+  console.log('enableBodyMasking : ', enableBodyMasking);
+  console.log('emailBodyMaxLength : ', emailBodyMaxLength);
 
-const generateCircuitTemplate = (
-  extractionValues: ExtractionValue[],
-  externalInputs: ExternalInput[],
-  circuitName: string,
-  ignoreBodyHashCheck: boolean,
-  enableHeaderMasking: boolean,
-  enableBodyMasking: boolean,
-  emailBodyMaxLength: number
-) => {
   return `pragma circom 2.1.6;
 include "@zk-email/circuits/email-verifier.circom";
 include "@zk-email/circuits/utils/regex.circom";
 
-${extractionValues
-  .map((value) => `include "./regex/${value.name}Regex.circom";`)
-  .join("\n")}
+${decomposedRegexes
+  .map((value) => `include "./regex/${value.name}.circom";`)
+  .join('\n')}
 
 template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
     assert(n * k > 1024); // constraints for 1024 bit RSA
@@ -50,9 +61,9 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
     }; i++) {
     ${input.name}Squared[i] <== ${input.name}[i] * ${input.name}[i];
     }
-    `
+    `,
       )
-      .join("")}
+      .join('')}
 
     // DKIM Verification
     component EV = EmailVerifier(maxHeaderLength, maxBodyLength, n, k, ${
@@ -78,7 +89,7 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
     EV.emailBodyLength <== emailBodyLength;
     EV.decodedEmailBodyIn <== decodedEmailBodyIn;
     `
-        : ""
+        : ''
     }
 
     ${
@@ -88,7 +99,7 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
 
     EV.headerMask <== headerMask;
     `
-        : ""
+        : ''
     }
 
     ${
@@ -98,7 +109,7 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
 
         EV.bodyMask <== bodyMask;
         `
-        : ""
+        : ''
     }
 
     signal output pubkeyHash;
@@ -110,7 +121,7 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
     signal output maskedHeader;
     maskedHeader <== EV.maskedHeader;
     `
-        : ""
+        : ''
     }
 
     ${
@@ -119,24 +130,24 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
     signal output maskedBody;
     maskedBody <== EV.maskedBody;
     `
-        : ""
+        : ''
     }
 
 
     // Used for nullifier later
     signal headerHash[256] <== EV.sha;
 
-    ${extractionValues
+    ${decomposedRegexes
       .map(
         (value) => `
     // ${value.name.toUpperCase()} Extraction
     signal input ${value.name}RegexIdx;
     var ${value.name}MaxLength = ${value.maxLength};
     signal ${value.name}RegexOut, ${value.name}RegexReveal[${
-          value.location === "body" ? "maxBodyLength" : "maxHeaderLength"
+          value.location === 'body' ? 'maxBodyLength' : 'maxHeaderLength'
         }];
-    (${value.name}RegexOut, ${value.name}RegexReveal) <== ${value.name}Regex(${
-          value.location === "body" ? "maxBodyLength" : "maxHeaderLength"
+    (${value.name}RegexOut, ${value.name}RegexReveal) <== ${value.name}(${
+          value.location === 'body' ? 'maxBodyLength' : 'maxHeaderLength'
         })(emailBody);
     ${value.name}RegexOut === 1;
 
@@ -144,13 +155,13 @@ template ${circuitName}(maxHeaderLength, maxBodyLength, n, k, packSize) {
           value.name
         }MaxLength)];
     ${value.name}PackedOut <== PackRegexReveal(${
-          value.location === "body" ? "maxBodyLength" : "maxHeaderLength"
+          value.location === 'body' ? 'maxBodyLength' : 'maxHeaderLength'
         }, ${value.name}MaxLength)(${value.name}RegexReveal, ${
           value.name
         }RegexIdx);
-    `
+    `,
       )
-      .join("")}
+      .join('')}
 }
 
 ${
@@ -158,7 +169,7 @@ ${
     ? `
 component main { public [${externalInputs
         .map((i) => i.name)
-        .join(", ")}]} = ${circuitName}(1024, ${
+        .join(', ')}]} = ${circuitName}(1024, ${
         ignoreBodyHashCheck ? 0 : emailBodyMaxLength
       }, 121, 17, 7);
 `
@@ -169,34 +180,4 @@ component main = ${circuitName}(1024, ${
 `
 }
 `;
-};
-
-// Function to pass dummy values and save the output to a file
-export const saveCircuitTemplate = () => {
-  const dummyValues: ExtractionValue[] = [
-    { name: "Test", maxLength: 200, location: "body" },
-  ];
-
-  const dummyExternalInputs: ExternalInput[] = [
-    { name: "external", maxLength: 50 },
-  ];
-
-  const circuitName = "EmailCircuit";
-  const ignoreBodyHashCheck = false;
-  const emailBodyMaxLength = 1024;
-
-  const template = generateCircuitTemplate(
-    dummyValues,
-    dummyExternalInputs,
-    circuitName,
-    ignoreBodyHashCheck,
-    false, // enableHeaderMasking
-    false, // enableBodyMasking
-    emailBodyMaxLength
-  );
-
-  fs.writeFileSync("output.circom", template);
-};
-
-// Call the function to save the template
-saveCircuitTemplate();
+}

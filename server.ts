@@ -1,9 +1,12 @@
 // Importing module
 import express from 'express';
-import { RegexBlueprintProps } from 'zk-email-sdk-js';
-import { compileCircuit, createCircomCircuit } from './regex';
+import { ProvingScheme, RegexBlueprintProps } from 'zk-email-sdk-js';
+import { generateDecomposedRegexesCircuitTemplates } from './regex';
 import { prisma } from 'db';
+import { CircuitType } from '@prisma/client';
 import fs from 'fs/promises';
+import { generateCircuitTemplate } from 'circuit_template';
+import { generateZKey } from 'generate_zkey';
 
 const CIRCUIT_OUT_DIR = './tmp/circuit';
 
@@ -21,34 +24,48 @@ app.post('/submit', async (req, res) => {
   try {
     const props = req.body as RegexBlueprintProps;
     console.log('props: ', props);
-    let circuit = createCircomCircuit(
-      props.decomposedRegex,
-      props.metaData.name,
-    );
-
-    const mainFnStr = `\ncomponent main = ${props.metaData.name}(1024);`;
-
-    circuit += mainFnStr;
-
-    console.log('circuit : ', circuit);
 
     const newBlueprint = await prisma.regexBlueprint.create({
       data: {
         ...props.metaData,
-        circuit,
-        circuitType: props.provingScheme,
-        decomposedRegex: props.decomposedRegex,
+        // TODO: use ProvingScheme type
+        decomposedRegexes: props.decomposedRegexes,
       },
     });
     console.log('newBlueprint : ', newBlueprint);
+    const id = newBlueprint.id.toString();
 
-    const circuitId = newBlueprint.id.toString();
-    const circuitPath = `${CIRCUIT_OUT_DIR}/${circuitId}.circom`;
-    console.log('circuitPath: ', circuitPath);
-    await fs.writeFile(circuitPath, circuit);
-    console.log('file written');
-    await compileCircuit(circuitPath, circuitId);
-    console.log('compilation done');
+    // create folder in temp folder id
+    // create regex folder -> one .circom for each dr using genFromDecomposec
+    await fs.mkdir(`./tmp/${id}`);
+    await fs.mkdir(`./tmp/${id}/regex`);
+
+    await generateDecomposedRegexesCircuitTemplates(
+      props.decomposedRegexes,
+      id,
+    );
+
+    console.log('generated decomposed regex circuit templates');
+
+    // Call circuit_teplate, put file in id/name.circom
+    // -> compile that
+    const template = generateCircuitTemplate({
+      decomposedRegexes: props.decomposedRegexes,
+      externalInputs: props.externalInputs || [],
+      circuitName: props.metaData.name.replaceAll(' ', ''),
+      ignoreBodyHashCheck: props.ignoreBodyHashCheck,
+      enableHeaderMasking: props.enableHeaderMasking,
+      enableBodyMasking: props.enableBodyMasking,
+      emailBodyMaxLength: props.metaData.emailBodyMaxLength,
+    });
+
+    console.log('generated circuite template');
+
+    const name = props.metaData.name.replaceAll(' ', '');
+    await fs.writeFile(`./tmp/${id}/${name}.circom`, template);
+
+    console.log('genrating vkey');
+    await generateZKey(id, name);
 
     res.status(200).json({ message: 'Ok' });
   } catch (err) {

@@ -19,6 +19,7 @@
     "@zk-email/zk-regex-circom": "^2.1.1",
     "@zk-email/zk-regex-compiler": "^2.1.1",
     "circomlib": "^2.0.5",
+    "ethers": "^6.13.2",
     "express": "^4.21.0",
     "prisma": "^5.20.0",
     "ts-node": "^10.9.2",
