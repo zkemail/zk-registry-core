@@ -11,16 +11,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.20.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.6.1",
     "@types/uuid": "^10.0.0",
+    "@zk-email/zk-regex-circom": "^2.1.1",
     "@zk-email/zk-regex-compiler": "^2.1.1",
+    "circomlib": "^2.0.5",
     "express": "^4.21.0",
+    "prisma": "^5.20.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0"
-  }
+  },
+  "type": "module"
 }

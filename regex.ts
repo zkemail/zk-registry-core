@@ -1,64 +1,113 @@
-import { genFromDecomposed } from "@zk-email/zk-regex-compiler";
-import { v4 as uuidv4 } from "uuid";
-import { existsSync, mkdirSync } from "fs";
+import { genFromDecomposed } from '@zk-email/zk-regex-compiler';
+// import { v4 as uuidv4 } from 'uuid';
+// import { existsSync, mkdirSync } from 'fs';
+import fs from 'fs/promises';
+import init from '@zk-email/zk-regex-compiler';
+import path from 'path';
+import { exec as execCallback } from 'child_process';
+import { promisify } from 'util';
 
-type DecomposedRegexPart = {
-  is_public: boolean;
-  regex_def: string;
-};
+const exec = promisify(execCallback);
 
-type DecomposedRegex = {
-  parts: DecomposedRegexPart[];
-};
-
-interface Submission {
-  DecomposedRegex: DecomposedRegex;
-  circomTemplateName: string;
-}
-
-function createCircomCircuit(
-  decomposedRegex: DecomposedRegex,
-  circomTemplateName: string
-): string {
-  return genFromDecomposed(JSON.stringify(decomposedRegex), circomTemplateName);
-}
-
-function compileCircomCircuit(circomFilePath: string): boolean {
-  const execSync = require("child_process").execSync;
+// Using exec (for simpler commands)
+async function execCmd(command: string): Promise<string> {
   try {
-    execSync(`circom ${circomFilePath} --r1cs --wasm --sym`, {
-      stdio: "inherit",
-    });
-    return true;
+    const { stdout, stderr } = await exec(command);
+    console.log('Command Output:', stdout);
+    if (stderr) {
+      throw new Error(`Command failed: ${stderr}`);
+    }
+    return stdout;
   } catch (error) {
-    console.error("Error during compilation:", error);
-    return false;
+    throw new Error(`Failed to execute command: ${error}`);
   }
 }
 
-function handleSubmission(submission: Submission): string {
-  const tempFolderPath = "./tmp";
-  if (!existsSync(tempFolderPath)) {
-    mkdirSync(tempFolderPath);
-  }
+// TODO: use env var
+const COMPILED_CIRCUIT_OUT_DIR = './tmp/compiled_circuit';
 
-  let circuit = createCircomCircuit(
-    submission.DecomposedRegex,
-    submission.circomTemplateName
+init()
+  .then(() => {
+    console.log('Initialized wasm');
+  })
+  .catch((err) => {
+    console.error('Failed to initialize wasm: ', err);
+  });
+
+/* 1. Create and save a new circuit.
+ * 2. Deploy a verifier on chain.
+ * 3. Save the circuit and infomation about the verifier contract to the registry.
+ */
+
+// type DecomposedRegexPart = {
+//   is_public: boolean;
+//   regex_def: string;
+// };
+
+// type DecomposedRegex = {
+//   parts: DecomposedRegexPart[];
+// };
+
+// interface Submission {
+//   DecomposedRegex: DecomposedRegex;
+//   circomTemplateName: string;
+// }
+
+export function createCircomCircuit(
+  decomposedRegex: DecomposedRegex,
+  circomTemplateName: string,
+): string {
+  console.log('createCircomCircuit');
+  console.log('decomposedRegex: ', decomposedRegex);
+  console.log('circomTemplateName: ', circomTemplateName);
+  const str = JSON.stringify(decomposedRegex);
+  console.log('str: ', str);
+
+  return genFromDecomposed(str, circomTemplateName);
+}
+
+// save compiled circuit
+// circom multiplier2.circom --r1cs --wasm --sym -o output_dir -l ./node_modules/
+export async function compileCircuit(
+  circuitPath: string,
+  id: string,
+): Promise<void> {
+  const nodeModulesDir = './node_modules';
+
+  const outputDir = `${COMPILED_CIRCUIT_OUT_DIR}/${id}`;
+  console.log('outputDIr: ', outputDIr);
+
+  await fs.mkdir(outputDir);
+
+  const circomResult = await execCmd(
+    `circom ${circuitPath} --r1cs --wasm --sym -o ${outputDir} -l ${nodeModulesDir}`,
   );
-
-  let id = uuidv4();
-
-  // Create a new folder for the submission
-  let submissionFolderPath = `${tempFolderPath}/${id}`;
-  mkdirSync(submissionFolderPath);
-
-  // Write the circom file
-  let circomFilePath = `${submissionFolderPath}/${id}.circom`;
-
-  // Compile the circom file
-  let compiled = compileCircomCircuit(circomFilePath);
-  if (!compiled) {
-    return "Error during compilation";
-  }
+  console.log('circomResult: ', circomResult);
 }
+
+// function handleSubmission(submission: Submission): string {
+//   const tempFolderPath = './tmp';
+//   if (!existsSync(tempFolderPath)) {
+//     mkdirSync(tempFolderPath);
+//   }
+
+//   let circuit = createCircomCircuit(
+//     submission.DecomposedRegex,
+//     submission.circomTemplateName,
+//   );
+
+//   let id = uuidv4();
+
+//   // Create a new folder for the submission
+//   let submissionFolderPath = `${tempFolderPath}/${id}`;
+//   mkdirSync(submissionFolderPath);
+
+//   // Write the circom file
+//   let circomFilePath = `${submissionFolderPath}/${id}.circom`;
+
+//   // Compile the circom file
+//   let compiled = compileCircomCircuit(circomFilePath);
+//   if (!compiled) {
+//     return 'Error during compilation';
+//   }
+// }

@@ -1,0 +1,38 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://emailwallet:p@ssw0rd@localhost:5432/zkregistry"
+}
+
+enum CircuitType {
+  CIRCOM
+}
+
+model RegexBlueprint {
+  id                     String      @id @default(uuid()) @db.Uuid
+  title                  String      @db.VarChar(255)
+  description            String?
+  slug                   String?     @db.VarChar(255)
+  tags                   String?     @db.VarChar(255)
+  emailQuery             String?     @map("email_query")
+  useNewSdk              Boolean?    @map("use_new_sdk")
+  name                   String      @db.VarChar(255)
+  ignoreBodyHashCheck    Boolean?    @map("ignore_body_hash_check")
+  enableMasking          Boolean?    @map("enable_masking")
+  shaPrecomputeSelector  String?     @map("sha_precompute_selector") @db.VarChar(255)
+  emailBodyMaxLength     Int?        @map("email_body_max_length")
+  senderDomain           String?     @map("sender_domain") @db.VarChar(255)
+  dkimSelector           String?     @map("dkim_selector") @db.VarChar(255)
+  decomposedRegex        Json
+  circuit                String?     @db.Text
+  circuitType            CircuitType @default(CIRCOM)
+  createdAt              DateTime    @default(now()) @map("created_at")
+  updatedAt              DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  @@map("regex_blueprints")
+}
